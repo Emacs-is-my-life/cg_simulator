@@ -1,5 +1,6 @@
 # Input Models
 input/model/*
+!input/model/.gitkeep
 
 # Simulator outputs
 output/*
