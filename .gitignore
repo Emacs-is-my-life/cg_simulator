@@ -1,0 +1,10 @@
+# Input Models
+input/model/*
+
+# Simulator outputs
+output/*
+!output/.gitkeep
+
+# Temporary
+tmp/
+.codex/
