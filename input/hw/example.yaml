@@ -1,0 +1,17 @@
+compute:
+  type: "SimpleCPU"
+  args:
+  modifier: 1
+
+disk:
+  type: "SimpleSSD"
+  args:
+    latency_us: 40
+    perf_curve:
+      - io_size_kb: 4
+	    bandwidth_kb: 400000
+	  - io_size_kb: 8
+	    bandwidth_kb: 1200000
+	  - io_size_kb: 16 
+	    bandwidth_kb: 12000000
+		
