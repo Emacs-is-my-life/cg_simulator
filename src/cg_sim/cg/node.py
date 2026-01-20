@@ -18,7 +18,7 @@ class Node:
     Only actual computation nodes! (No GGML_OP_NONE nodes in llama.cpp)
     """
 
-    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, output_tensor: Tensor, node_status: NodeStatus = NodeStatus.TODO):
+    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, output_tensors: list[Tensor], node_status: NodeStatus = NodeStatus.TODO):
         """Initialize a Node, with it's computation characteristics"""
         self.step = step
         self.id = node_id
@@ -31,7 +31,7 @@ class Node:
         tensor_output: Same as above
         """
         self.input_tensors = []  # Data Dependency
-        self.output_tensor = output_tensor
+        self.output_tensors = output_tensors
 
         """
         node_parents:  Required to check if previous jobs are finished

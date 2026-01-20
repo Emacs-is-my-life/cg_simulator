@@ -1,12 +1,12 @@
 import yaml
+from pathlib import Path
 import networkx as nx
 from networkx.drawing.nx_agraph import read_dot
 from gguf.gguf_reader import GGUFReader
 import polars as pl
 import re
 
-from cg_sim.cg import Workload
-from cg_sim.cg import NodeStatus, Node
+from cg_sim.cg import NodeStatus, Node, Workload
 from cg_sim.mm import TensorType, Tensor
 
 
@@ -88,18 +88,22 @@ def llamacpp_loader(model_config_path: str) -> Workload:
         raise Exception("[Loader] Model type mismatch!")
 
     model_args = model_conf["args"]
+    model_path = Path(model_config_path).parent
 
     # Load tensor name and size from GGUF model file
     gguf_info: dict[str, int] = {} # tensor_name -> tensor_size_n_bytes
-    gguf_reader = GGUFReader(model_args["gguf_path"])
+    gguf_path = model_path / model_args["gguf_path"]
+    gguf_reader = GGUFReader(gguf_path)
     for tensor in gguf_reader.tensors:
         gguf_info[tensor.name] = tensor.n_bytes
 
     # Load node compute from profile record as a Polars DataFrame
-    df_records = pl.read_csv(model_args["record_path"], has_header=True)
+    record_path = model_path / model_args["record_path"]
+    df_records = pl.read_csv(record_path, has_header=True)
 
     # Load compute graph in dot format
-    compute_graph = read_dot(model_args["dot_graph_path"])
+    dot_graph_path = model_path / model_args["dot_graph_path"]
+    compute_graph = read_dot(dot_graph_path)
 
     NodeMap: dict[int, Node] = {}
     TensorMap: dict[int, Tensor] = {}
@@ -127,6 +131,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
             graph_id_map[g_id] = new_tensor
         else:
             # Node   (Computation)
+
             # For a Node, we have to do both:
             # 1. Add Node to NodeMap
             # 2. Add Tensor, holding the output of this Node, to TensorMap
@@ -148,17 +153,36 @@ def llamacpp_loader(model_config_path: str) -> Workload:
             step = node_record["step"]
             node_name = node_record["node_name"]
             compute_time_ns = node_record["compute_time_ns"]
-            output_tensor = tensor
+            output_tensors = [tensor]
 
-            new_node = Node(step, node_id, node_name, compute_time_ns, output_tensor)
+            new_node = Node(step, node_id, node_name, compute_time_ns, output_tensors)
             NodeMap[node_id] = new_node
             node_id += 1
 
             graph_id_map[g_id] = new_node
 
         # Build a Compute Graph by adding parent-child relationships
+        for parent_g_id, child_g_id, _ in compute_graph.edges():
+            child_node = graph_id_map[child_g_id]
+            parent = graph_id_map[parent_g_id]
+
+            # Check if parent is Node or Tensor
+            if isinstance(parent, Node):
+                # Add Control Dependency
+                child_node.add_control_dependency(parent)
+                # Add Data Dependency
+                for tensor in parent.output_tensors:
+                    child_node.add_data_dependency(tensor)
+            elif isinstance(parent, Tensor):
+                # Add Data Dependency
+                child_node.add_data_dependency(parent)
+            else:
+                raise Exception("parent is neither Node nor Tensor")
 
         # Create a Workload object
+        first_node_g_id = next(iter(compute_graph.nodes()))
+        first_node = graph_id_map[first_node_g_id]
+        ComputeGraph = first_node
+        workload = Workload(ComputeGraph, NodeMap, TensorMap)
 
-
-    return
+    return workload
