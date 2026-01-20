@@ -18,7 +18,7 @@ def node_name_canonicalizer(label: str) -> str:
 
 
 def get_tensor_type(canonical_name: str) -> TensorType:
-    """Return a TensorType, infering from the canonical name of a tensor"""
+    """Returns a TensorType, inferred from the canonical name of a tensor"""
     if ".weight" in canonical_name:
         return TensorType.WEIGHT
     elif ("cache_k" in canonical_name) or ("cache_v" in canonical_name) or ("leaf" in canonical_name):
@@ -161,28 +161,28 @@ def llamacpp_loader(model_config_path: str) -> Workload:
 
             graph_id_map[g_id] = new_node
 
-        # Build a Compute Graph by adding parent-child relationships
-        for parent_g_id, child_g_id, _ in compute_graph.edges():
-            child_node = graph_id_map[child_g_id]
-            parent = graph_id_map[parent_g_id]
+    # Build a Compute Graph by adding parent-child relationships
+    for parent_g_id, child_g_id, _ in compute_graph.edges():
+        child_node = graph_id_map[child_g_id]
+        parent = graph_id_map[parent_g_id]
 
-            # Check if parent is Node or Tensor
-            if isinstance(parent, Node):
-                # Add Control Dependency
-                child_node.add_control_dependency(parent)
-                # Add Data Dependency
-                for tensor in parent.output_tensors:
-                    child_node.add_data_dependency(tensor)
-            elif isinstance(parent, Tensor):
-                # Add Data Dependency
-                child_node.add_data_dependency(parent)
-            else:
-                raise Exception("parent is neither Node nor Tensor")
+        # Check if parent is Node or Tensor
+        if isinstance(parent, Node):
+            # Add Control Dependency
+            child_node.add_control_dependency(parent)
+            # Add Data Dependency
+            for tensor in parent.output_tensors:
+                child_node.add_data_dependency(tensor)
+        elif isinstance(parent, Tensor):
+            # Add Data Dependency
+            child_node.add_data_dependency(parent)
+        else:
+            raise Exception("parent is neither Node nor Tensor")
 
-        # Create a Workload object
-        first_node_g_id = next(iter(compute_graph.nodes()))
-        first_node = graph_id_map[first_node_g_id]
-        ComputeGraph = first_node
-        workload = Workload(ComputeGraph, NodeMap, TensorMap)
+    # Create a Workload object
+    first_node_g_id = next(iter(compute_graph.nodes()))
+    first_node = graph_id_map[first_node_g_id]
+    ComputeGraph = first_node
+    workload = Workload(ComputeGraph, NodeMap, TensorMap)
 
     return workload
