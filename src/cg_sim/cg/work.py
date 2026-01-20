@@ -5,15 +5,15 @@ from .node import Node
 
 def Map_Check(NodeMap: dict[int, Node], TensorMap: dict[int, Tensor]) -> bool:
     """Check if data dependency (tensor) are well-defined"""
-    for node in NodeMap.keys():
+    for node in NodeMap.values():
         # Check if input tensors are all defined in the TensorMap
         for tensor_i in node.input_tensors:
-            if not TensorMap.get(tensor_i):
+            if not TensorMap.get(tensor_i.id):
                 raise Exception(f"Node {node.id}'s input tensor: Tensor {tensor_i.id} does not exist in the TensorMap.")
             
         # Check if output tensors are all defined in the TensorMap
         for tensor_o in node.output_tensors:
-            if not TensorMap.get(tensor_o):
+            if not TensorMap.get(tensor_o.id):
                 raise Exception(f"Node {node.id}'s output tensor: Tensor {tensor_o.id} does not exist in the TensorMap.")
 
     return True
