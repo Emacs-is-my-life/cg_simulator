@@ -12,10 +12,11 @@ class TensorType(Enum):
 
 class Tensor:
     """Tensor represents data being process in model inference"""
-    def __init__(self, tensor_id: int, tensor_name: str, tensor_type: TensorType, base_addr: int = -2, size_bytes: int = 0):
+    def __init__(self, tensor_id: int, tensor_name: str, tensor_type: TensorType, size_bytes: int = 0, base_addr: int = -1):
         self.id = tensor_id
         self.name = tensor_name
         self.type = tensor_type
+        self.size_bytes = size_bytes
         self.base_addr = base_addr
 
         align_bytes = 64        # 64 B in AMD64 for optimal performance

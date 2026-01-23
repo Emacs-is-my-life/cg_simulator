@@ -1,0 +1,4 @@
+scheduler:
+  type: "no-slowdown"
+  args:
+    foo: "bar"

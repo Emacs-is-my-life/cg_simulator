@@ -1,8 +1,6 @@
 from __future__ import annotations
 from enum import Enum, auto
 
-from cg_sim.mm import Tensor
-
 
 class NodeStatus(Enum):
     """TensorType represents the status of a Node"""
@@ -18,7 +16,7 @@ class Node:
     Only actual computation nodes! (No GGML_OP_NONE nodes in llama.cpp)
     """
 
-    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, output_tensors: list[Tensor], node_status: NodeStatus = NodeStatus.TODO):
+    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, node_status: NodeStatus = NodeStatus.TODO):
         """Initialize a Node, with it's computation characteristics"""
         self.step = step
         self.id = node_id
@@ -31,7 +29,7 @@ class Node:
         tensor_output: Same as above
         """
         self.input_tensors = []  # Data Dependency
-        self.output_tensors = output_tensors
+        self.output_tensors = []
 
         """
         node_parents:  Required to check if previous jobs are finished
@@ -43,33 +41,44 @@ class Node:
         self.children_nodes = []
         return
 
-    def add_control_dependency(self, node_p: Node):
+    def add_parent_node(self, node_id: int):
         """
         Adds a parent Node, for building a Compute Graph
-        To fully add a (common) Node as a parent,
-        you must do both:
-        add_control_dependency() - Add a Node as parent node
-        add_data_dependency()    - Add parent Node's output Tensor in input_tensors
+        To fully add a (common) Node as a parent
         """
 
         # Check deuplicates
-        for node in self.parent_nodes:
-            if node_p.id == node.id:
+        for p_node_id in self.parent_nodes:
+            if node_id == p_node_id:
                 return
 
-        # Register a parent Node
-        node_p.children_nodes.append(self)
-        self.parent_nodes.append(node_p)
+        self.parent_nodes.append(node_id)
         return
 
-    def add_data_dependency(self, tensor_i: Tensor):
+    def add_child_node(self, node_id: int):
+        for c_node_id in self.children_nodes:
+            if node_id == c_node_id:
+                return
+
+        self.children_nodes.append(node_id)
+        return
+
+    def add_inut_tensor(self, tensor_id: int):
         """Adds an input Tensor, for Tensor placement check before computation"""
 
         # Check duplicates
-        for tensor in self.input_tensors:
-            if tensor_i.id == tensor.id:
+        for i_tensor_id in self.input_tensors:
+            if tensor_id == i_tensor_id:
                 return
 
-        # Register an input tensor
-        self.input_tensors.append(tensor_i)
+        self.input_tensors.append(tensor_id)
+        return
+
+    def add_output_tensor(self, tensor_id: int):
+        # Check duplicates
+        for o_tensor_id in self.output_tensors:
+            if tensor_id == o_tensor_id:
+                return
+
+        self.output_tensors.append(tensor_id)
         return

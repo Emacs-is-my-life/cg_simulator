@@ -155,6 +155,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
             compute_time_ns = node_record["compute_time_ns"]
             output_tensors = [tensor]
 
+            # Put a new Node into NodeMap
             new_node = Node(step, node_id, node_name, compute_time_ns, output_tensors)
             NodeMap[node_id] = new_node
             node_id += 1
