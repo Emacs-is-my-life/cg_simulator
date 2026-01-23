@@ -4,16 +4,16 @@ from enum import Enum, auto
 
 class NodeStatus(Enum):
     """TensorType represents the status of a Node"""
-    TODO = auto()   # Not started yet
-    SCHED = auto()  # Node is enqueued to compute unit's job queue
-    RUN = auto()    # Node is being run now
-    DONE = auto()   # Finished execution
+    TODO = auto()    # Not scheduled yet
+    SCHED = auto()   # Node is enqueued to compute unit's job queue
+    RUN = auto()     # Node is being processed now
+    DONE = auto()    # Finished execution
 
 
 class Node:
     """
     Node represents an atomic unit of workload, in a compute graph.
-    Only actual computation nodes! (No GGML_OP_NONE nodes in llama.cpp)
+    Only actual computation nodes! (GGML_OP_NONE node of llama.cpp isn't a Node in our definition.)
     """
 
     def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, node_status: NodeStatus = NodeStatus.TODO):
@@ -63,7 +63,7 @@ class Node:
         self.children_nodes.append(node_id)
         return
 
-    def add_inut_tensor(self, tensor_id: int):
+    def add_input_tensor(self, tensor_id: int):
         """Adds an input Tensor, for Tensor placement check before computation"""
 
         # Check duplicates

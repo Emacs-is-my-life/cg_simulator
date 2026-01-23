@@ -30,7 +30,7 @@ def get_tensor_type(canonical_name: str) -> TensorType:
 
 class TensorWithSign(Tensor):
     """
-    Tensor data type, but with its runtime address as signature
+    Tensor data type, but with its runtime address as a signature
     Signature is required to distinguish real Tensor and virtual Tensor from traces
     """
     def __init__(self, tensor_id: int, tensor_name: str, tensor_type: TensorType, tensor_sign: str, size_bytes: int = 0, base_addr: int = -1):
@@ -40,6 +40,19 @@ class TensorWithSign(Tensor):
 
     def get_Tensor(self):
         return Tensor(self.id, self.name, self.type, self.size_bytes, self.base_addr)
+
+
+def get_real_tensor_id(TensorWithSignMap: dict[int, TensorWithSign], tensor_sign: str) -> int:
+    """
+    Using tensor_sign, look for the existing Tensor in TensorWithSignMap.
+    If there is no such Tensor, returns -1.
+    """
+
+    for tensor_id, tensor in TensorWithSignMap.items():
+        if tensor_sign == tensor.sign:
+            return tensor_id
+
+    return -1
 
 
 def llamacpp_loader(model_config_path: str) -> Workload:
@@ -96,15 +109,15 @@ def llamacpp_loader(model_config_path: str) -> Workload:
 
     NodeMap: dict[int, Node] = {}
     TensorWithSignMap: dict[int, TensorWithSign] = {}
-    GraphIDMap: dict[int, Node | TensorWithSign] = {}
+    VerticeMap: dict[int, Node | TensorWithSign] = {}
 
     # Trackers
     node_id = 0
     tensor_id = 0
 
     # Iterate over all Vertices(Nodes and Tensors) in the dot graph
-    for g_id, g_attr in dot_graph.nodes(data=True):
-        v_label = g_attr["label"]
+    for v_id, v_attr in dot_graph.nodes(data=True):
+        v_label = v_attr["label"]
 
         # Check if it's a Tensor (Weight Tensor) or a Node (actual Computation) and Tensor (Input/Intermediate/KVCache)
         if v_label.startswith('<x>'):
@@ -121,7 +134,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
             TensorWithSignMap[tensor_id] = tensor_new
             tensor_id += 1
 
-            GraphIDMap[g_id] = tensor_new
+            VerticeMap[v_id] = tensor_new
         else:
             # Node and it's output Tensor (Input/Intermediate/KVCache)
 
@@ -133,10 +146,61 @@ def llamacpp_loader(model_config_path: str) -> Workload:
                 pl.col("node_n") == node_id
             ).head(1).row(0, named=True)
 
-            
+            canonical_name = node_name_canonicalizer(v_label)
+            tensor_sign = node_info["tensor_addr"]
+            tensor_real_id = get_real_tensor_id(TensorWithSignMap, tensor_sign)
+            if tensor_real_id == -1:
+                # Such Tensor does not exist yet in the TensorWithSignMap
 
+                tensor_type = get_tensor_type(canonical_name)
+                tensor_size_bytes = node_info["node_tensor_size_bytes"]
 
+                # Create a new TensorWithSign and register it
+                tensor_new = TensorWithSign(tensor_id, canonical_name, tensor_type, tensor_sign, tensor_size_bytes)
+                TensorWithSignMap[tensor_id] = tensor_new
+                tensor_id += 1
 
+                tensor_real_id = tensor_new.id
 
+            # Create a new Node
+            step = 0
+            node_name = node_info["node_name"]
+            compute_time_ns = node_info["compute_time_ns"]
+            node_new = Node(step, node_id, node_name, compute_time_ns)
+            node_new.add_output_tensor(tensor_real_id)
+            NodeMap[node_id] = node_new
+            node_id += 1
 
-    # return workload
+            VerticeMap[v_id] = node_new
+
+    # Build a Compute Graph, by translating dot graph edges into parent-child relationship
+    for parent_v_id, child_v_id, _ in dot_graph.edges():
+        child_node = VerticeMap[child_v_id]
+        parent = VerticeMap[parent_v_id]
+
+    # Check if the parent is Node or Tensor
+    if isinstance(parent, Node):
+        # Add control dependency
+        parent.add_child_node(child_node.id)
+        child_node.add_parent_node(parent.id)
+
+        # Add data dependency
+        for tensor_id in parent.output_tensors:
+            child_node.add_input_tensor(tensor_id)
+    else:
+        # Add data dependency
+        child_node.add_input_tensor(parent.id)
+
+    # Create TensorMap, since we don't need tensor signatures anymore
+    TensorMap: dict[int, Tensor] = {}
+    for tensor_id, tensor in TensorWithSignMap.items():
+        TensorMap[tensor_id] = tensor.get_tensor()
+
+    # ComputeGraph is essentially a pointer to the start node of the whole graph
+    start_node_v_id = next(iter(dot_graph.nodes()))
+    start_node = VerticeMap[start_node_v_id]
+    ComputeGraph = start_node
+
+    # Create the Worload object for simulation
+    workload = Workload(ComputeGraph, NodeMap, TensorMap)
+    return workload

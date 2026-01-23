@@ -11,7 +11,7 @@ class TensorType(Enum):
 
 
 class Tensor:
-    """Tensor represents data being process in model inference"""
+    """Tensor represents data being processed in model inference"""
     def __init__(self, tensor_id: int, tensor_name: str, tensor_type: TensorType, size_bytes: int = 0, base_addr: int = -1):
         self.id = tensor_id
         self.name = tensor_name
