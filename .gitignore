@@ -9,3 +9,6 @@ output/*
 # Temporary
 tmp/
 .codex/
+
+# Python
+__pycache__/

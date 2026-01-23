@@ -64,7 +64,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
     # Read model config yaml file
     model_conf = None
     with open(model_config_path, 'r') as f:
-        model_conf = yaml.safe_load(f)
+        model_conf = yaml.safe_load(f)["model"]
 
     if not model_conf["type"] == "llama.cpp":
         raise Exception("[Loader] Model type mismatch!")
@@ -80,7 +80,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
     )
 
     # Load weight metadata from the gguf file
-    gguf_info = dict[str, int] = {}  # tensor_name (Weight tensors only) -> tensor_size_bytes
+    gguf_info = {}  # tensor_name (Weight tensors only) -> tensor_size_bytes
     gguf_path = model_path / model_args["gguf_path"]
     gguf_reader = GGUFReader(gguf_path)
     for tensor_w in gguf_reader.tensors:
@@ -125,7 +125,25 @@ def llamacpp_loader(model_config_path: str) -> Workload:
 
             canonical_name = node_name_canonicalizer(v_label[3:])  # Ditch "<x>" part
             tensor_type = get_tensor_type(canonical_name)
-            tensor_size_bytes = gguf_info[canonical_name]
+            tensor_size_bytes = -1
+
+            # <leaf> and <cache_> are assigned in runtime, so no info in gguf_info(from gguf file)
+            if "leaf_" in canonical_name:
+                # TODO: properly compute leaf node size, from it's v_label
+                # but it's usually so tiny wouldn't matter
+                tensor_size_bytes = 4  # Just 4 bytes
+            elif ("cache_k" in canonical_name) or ("cache_v" in canonical_name):
+                # For cache_k_lX, cache_v_lX tensors,
+                # we can't locate their size in our runtime profiling data
+                try:
+                    cache_node_info = df_records_step.filter(
+                        pl.col("node_name") == canonical_name
+                    ).head(1).row(0, named=True)
+                except Exception as e:
+                    print(f"Cache tensor Canonical Name: {canonical_name}")
+                tensor_size_bytes = cache_node_info["node_tensor_size_bytes"]
+            else:
+                tensor_size_bytes = gguf_info[canonical_name]
 
             # Put a new Tensor into TensorWithSignMap
             # Tensor signature (its runtime address) is not needed, for it is a weight Tensor.
@@ -165,7 +183,7 @@ def llamacpp_loader(model_config_path: str) -> Workload:
             # Create a new Node
             step = 0
             node_name = node_info["node_name"]
-            compute_time_ns = node_info["compute_time_ns"]
+            compute_time_ns = node_info["node_compute_time_ns"]
             node_new = Node(step, node_id, node_name, compute_time_ns)
             node_new.add_output_tensor(tensor_real_id)
             NodeMap[node_id] = node_new
