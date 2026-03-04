@@ -21,26 +21,17 @@ def Map_Check(NodeMap: dict[int, Node], TensorMap: dict[int, Tensor]):
     return
 
 
-def ComputeGraph_Check(ComputeGraph: Node, NodeMap: dict[int, Node]):
-    """
-    Check if provided ComputeGraph is forming a proper Directed Acylic Graph (DAG)
-    """
-
-    # TODO
-    pass
-    return
-
-
 class Workload:
     """
     Datastructure representing LLM inference workload to process.
     """
 
-    def __init__(self, ComputeGraph: Node, NodeMap: dict[int, Node], TensorMap: dict[int, Tensor]):
+    def __init__(self, NodeMap: dict[int, Node], TensorMap: dict[int, Tensor]):
         Map_Check(NodeMap, TensorMap)
-        ComputeGraph_Check(ComputeGraph, NodeMap)
 
-        self.ComputeGraph = ComputeGraph  # Start Node of connected Nodes, forming a graph
+        """
+        First Node in the NodeMap, should be the initial node in the compute graph!
+        """
         self.NodeMap = NodeMap            # Map of Nodes (id -> Node)
         self.TensorMap = TensorMap        # Map of Tensors (id -> Tensor)
         return

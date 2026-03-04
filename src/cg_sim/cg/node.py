@@ -13,10 +13,10 @@ class NodeStatus(Enum):
 class Node:
     """
     Node represents an atomic unit of workload, in a compute graph.
-    Only actual computation nodes! (GGML_OP_NONE node of llama.cpp isn't a Node in our definition.)
+    Only actual computation nodes! (GGML_OP_NONE nodes (leaf node) in llama.cpp aren't real Node in our definition.)
     """
 
-    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: int, node_status: NodeStatus = NodeStatus.TODO):
+    def __init__(self, step: int, node_id: int, node_name: str,  compute_time_ns: float, node_status: NodeStatus = NodeStatus.TODO):
         """Initialize a Node, with it's computation characteristics"""
         self.step = step
         self.id = node_id

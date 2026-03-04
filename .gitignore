@@ -12,3 +12,4 @@ tmp/
 
 # Python
 __pycache__/
+.aider*
