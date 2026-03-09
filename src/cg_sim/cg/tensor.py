@@ -10,6 +10,12 @@ class TensorType(Enum):
     KVCache = auto()
 
 
+class TensorStatus(Enum):
+    """State of the tensor"""
+    CONCRETE = auto()
+    MOVING = auto()
+
+
 class Tensor:
     """Tensor represents data being processed in model inference"""
     def __init__(self, tensor_id: int, tensor_name: str, tensor_type: TensorType, size_bytes: int = 0, base_addr: int = -1):
